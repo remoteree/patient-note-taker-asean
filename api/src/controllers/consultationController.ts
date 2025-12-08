@@ -1,15 +1,35 @@
 import { Response } from 'express';
 import Consultation from '../models/Consultation';
+import Patient from '../models/Patient';
 import { AuthRequest } from '../middleware/auth';
 import { noteService } from '../services/noteService';
 import { transcriptionService } from '../services/transcriptionService';
 
 export const createConsultation = async (req: AuthRequest, res: Response) => {
   try {
+    const { patientId } = req.body;
+
+    if (!patientId) {
+      return res.status(400).json({ error: 'Patient ID is required' });
+    }
+
+    // Verify patient belongs to the doctor
+    const patient = await Patient.findOne({
+      _id: patientId,
+      userId: req.userId,
+    });
+
+    if (!patient) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+
     const consultation = new Consultation({
       userId: req.userId,
+      patientId: patientId,
       transcript: '',
-      note: null,
+      doctorSummary: null,
+      patientNote: null,
+      tags: [],
       status: 'in_progress',
     });
 
@@ -19,8 +39,11 @@ export const createConsultation = async (req: AuthRequest, res: Response) => {
       consultation: {
         id: consultation._id,
         userId: consultation.userId,
+        patientId: consultation.patientId,
         transcript: consultation.transcript,
-        note: consultation.note,
+        doctorSummary: consultation.doctorSummary,
+        patientNote: consultation.patientNote,
+        tags: consultation.tags,
         status: consultation.status,
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt,
@@ -33,7 +56,15 @@ export const createConsultation = async (req: AuthRequest, res: Response) => {
 
 export const getConsultations = async (req: AuthRequest, res: Response) => {
   try {
-    const consultations = await Consultation.find({ userId: req.userId })
+    const { patientId } = req.query;
+
+    const query: any = { userId: req.userId };
+    if (patientId) {
+      query.patientId = patientId;
+    }
+
+    const consultations = await Consultation.find(query)
+      .populate('patientId', 'name dateOfBirth mrn')
       .sort({ createdAt: -1 })
       .select('-__v');
 
@@ -41,8 +72,12 @@ export const getConsultations = async (req: AuthRequest, res: Response) => {
       consultations: consultations.map(c => ({
         id: c._id,
         userId: c.userId,
+        patientId: c.patientId,
+        patient: c.patientId,
         transcript: c.transcript,
-        note: c.note,
+        doctorSummary: c.doctorSummary,
+        patientNote: c.patientNote,
+        tags: c.tags,
         status: c.status,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
@@ -60,7 +95,7 @@ export const getConsultation = async (req: AuthRequest, res: Response) => {
     const consultation = await Consultation.findOne({
       _id: id,
       userId: req.userId,
-    });
+    }).populate('patientId', 'name dateOfBirth mrn');
 
     if (!consultation) {
       return res.status(404).json({ error: 'Consultation not found' });
@@ -70,8 +105,12 @@ export const getConsultation = async (req: AuthRequest, res: Response) => {
       consultation: {
         id: consultation._id,
         userId: consultation.userId,
+        patientId: consultation.patientId,
+        patient: consultation.patientId,
         transcript: consultation.transcript,
-        note: consultation.note,
+        doctorSummary: consultation.doctorSummary,
+        patientNote: consultation.patientNote,
+        tags: consultation.tags,
         status: consultation.status,
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt,
@@ -89,7 +128,7 @@ export const generateNote = async (req: AuthRequest, res: Response) => {
     const consultation = await Consultation.findOne({
       _id: id,
       userId: req.userId,
-    });
+    }).populate('patientId', 'name dateOfBirth mrn');
 
     if (!consultation) {
       return res.status(404).json({ error: 'Consultation not found' });
@@ -104,9 +143,11 @@ export const generateNote = async (req: AuthRequest, res: Response) => {
     await consultation.save();
 
     try {
-      const note = await noteService.generateNote(consultation.transcript);
+      const { doctorSummary, patientNote, tags } = await noteService.generateNotes(consultation.transcript);
       
-      consultation.note = note;
+      consultation.doctorSummary = doctorSummary;
+      consultation.patientNote = patientNote;
+      consultation.tags = tags;
       consultation.status = 'completed';
       await consultation.save();
 
@@ -114,8 +155,12 @@ export const generateNote = async (req: AuthRequest, res: Response) => {
         consultation: {
           id: consultation._id,
           userId: consultation.userId,
+          patientId: consultation.patientId,
+          patient: consultation.patientId,
           transcript: consultation.transcript,
-          note: consultation.note,
+          doctorSummary: consultation.doctorSummary,
+          patientNote: consultation.patientNote,
+          tags: consultation.tags,
           status: consultation.status,
           createdAt: consultation.createdAt,
           updatedAt: consultation.updatedAt,

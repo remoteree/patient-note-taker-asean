@@ -19,26 +19,10 @@ class DeepgramTranscriptionService implements TranscriptionService {
   }> = new Map();
 
   constructor() {
-    console.log('\n[DeepgramTranscriptionService] Initializing...');
-    console.log(`[DeepgramTranscriptionService] Checking DEEPGRAM_API_KEY from process.env...`);
-    const envValue = process.env.DEEPGRAM_API_KEY;
-    console.log(`[DeepgramTranscriptionService] process.env.DEEPGRAM_API_KEY type: ${typeof envValue}`);
-    console.log(`[DeepgramTranscriptionService] process.env.DEEPGRAM_API_KEY exists: ${envValue !== undefined}`);
-    console.log(`[DeepgramTranscriptionService] process.env.DEEPGRAM_API_KEY is truthy: ${!!envValue}`);
-    console.log(`[DeepgramTranscriptionService] process.env.DEEPGRAM_API_KEY length: ${envValue?.length || 0}`);
-    
-    this.deepgramApiKey = envValue || '';
-    
-    if (this.deepgramApiKey) {
-      const masked = this.deepgramApiKey.length > 8 
-        ? `${this.deepgramApiKey.substring(0, 4)}...${this.deepgramApiKey.substring(this.deepgramApiKey.length - 4)}` 
-        : '***';
-      console.log(`[DeepgramTranscriptionService] ✓ DEEPGRAM_API_KEY found (${masked}, length: ${this.deepgramApiKey.length})`);
-    } else {
-      console.warn('[DeepgramTranscriptionService] ✗ DEEPGRAM_API_KEY not set. Transcription will not work.');
-      console.warn('[DeepgramTranscriptionService] Available env vars:', Object.keys(process.env).filter(k => k.includes('DEEPGRAM')));
+    this.deepgramApiKey = process.env.DEEPGRAM_API_KEY || '';
+    if (!this.deepgramApiKey) {
+      console.warn('DEEPGRAM_API_KEY not set. Transcription will not work.');
     }
-    console.log('[DeepgramTranscriptionService] Initialization complete\n');
   }
 
   async startSession(consultationId: string, clientWs: WebSocket): Promise<void> {

@@ -16,27 +16,68 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  TextField,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 import { Logout, Add } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { consultationsApi } from '../api/consultations';
-import { Consultation } from '../types';
+import { patientsApi } from '../api/patients';
+import { Consultation, Patient } from '../types';
+import PatientSearchDialog from '../components/PatientSearchDialog';
 
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [allPatients, setAllPatients] = useState<Patient[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
 
   useEffect(() => {
     loadConsultations();
+    loadAllPatients();
   }, []);
+
+  useEffect(() => {
+    loadConsultations();
+  }, [selectedPatientId]);
+
+  const loadAllPatients = async () => {
+    try {
+      // Load all patients by searching with empty query (we'll need to update backend or use a different approach)
+      // For now, we'll load patients from consultations
+      const response = await consultationsApi.getConsultations();
+      const patientMap = new Map<string, Patient>();
+      response.consultations.forEach((c) => {
+        if (c.patient && !patientMap.has(c.patient.id)) {
+          patientMap.set(c.patient.id, c.patient);
+        }
+      });
+      setAllPatients(Array.from(patientMap.values()));
+    } catch (err) {
+      // Ignore errors for patient loading
+    }
+  };
 
   const loadConsultations = async () => {
     try {
-      const response = await consultationsApi.getConsultations();
+      const response = await consultationsApi.getConsultations(selectedPatientId || undefined);
       setConsultations(response.consultations);
+      
+      // Update patient list from consultations
+      const patientMap = new Map<string, Patient>();
+      response.consultations.forEach((c) => {
+        if (c.patient && !patientMap.has(c.patient.id)) {
+          patientMap.set(c.patient.id, c.patient);
+        }
+      });
+      setAllPatients(Array.from(patientMap.values()));
     } catch (err: any) {
       setError(err.message || 'Failed to load consultations');
     } finally {
@@ -44,9 +85,13 @@ export default function DashboardPage() {
     }
   };
 
-  const handleNewConsultation = async () => {
+  const handleNewConsultation = () => {
+    setPatientSearchOpen(true);
+  };
+
+  const handleSelectPatient = async (patient: Patient) => {
     try {
-      const response = await consultationsApi.createConsultation();
+      const response = await consultationsApi.createConsultation(patient.id);
       navigate(`/consultations/${response.consultation.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create consultation');
@@ -76,8 +121,8 @@ export default function DashboardPage() {
   };
 
   const getPreview = (consultation: Consultation) => {
-    if (consultation.note) {
-      return consultation.note.substring(0, 100) + '...';
+    if (consultation.doctorSummary) {
+      return consultation.doctorSummary.substring(0, 100) + '...';
     }
     if (consultation.transcript) {
       return consultation.transcript.substring(0, 100) + '...';
@@ -115,6 +160,24 @@ export default function DashboardPage() {
           </Button>
         </Box>
 
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Filter by Patient</InputLabel>
+            <Select
+              value={selectedPatientId}
+              label="Filter by Patient"
+              onChange={(e) => setSelectedPatientId(e.target.value)}
+            >
+              <MenuItem value="">All Patients</MenuItem>
+              {allPatients.map((patient) => (
+                <MenuItem key={patient.id} value={patient.id}>
+                  {patient.name} ({patient.mrn})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
             {error}
@@ -144,15 +207,27 @@ export default function DashboardPage() {
                   >
                     <ListItemText
                       primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                           <Typography variant="h6">
                             {formatDate(consultation.createdAt)}
                           </Typography>
+                          {consultation.patient && (
+                            <Typography variant="body2" color="text.secondary">
+                              Patient: {consultation.patient.name}
+                            </Typography>
+                          )}
                           <Chip
                             label={consultation.status}
                             color={getStatusColor(consultation.status) as any}
                             size="small"
                           />
+                          {consultation.tags && consultation.tags.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                              {consultation.tags.slice(0, 3).map((tag, idx) => (
+                                <Chip key={idx} label={tag} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                          )}
                         </Box>
                       }
                       secondary={getPreview(consultation)}
@@ -164,6 +239,12 @@ export default function DashboardPage() {
           </List>
         )}
       </Container>
+
+      <PatientSearchDialog
+        open={patientSearchOpen}
+        onClose={() => setPatientSearchOpen(false)}
+        onSelectPatient={handleSelectPatient}
+      />
     </Box>
   );
 }

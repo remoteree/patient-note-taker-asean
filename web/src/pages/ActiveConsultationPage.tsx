@@ -14,8 +14,9 @@ import {
   CircularProgress,
   Alert,
   Chip,
+  Grid,
 } from '@mui/material';
-import { ArrowBack, Mic, Stop, CheckCircle } from '@mui/icons-material';
+import { ArrowBack, Mic, Stop, CheckCircle, Person } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { consultationsApi } from '../api/consultations';
 import { Consultation } from '../types';
@@ -67,7 +68,7 @@ export default function ActiveConsultationPage() {
       const response = await consultationsApi.getConsultation(id);
       setConsultation(response.consultation);
       setTranscript(response.consultation.transcript || '');
-      setNoteGenerated(!!response.consultation.note);
+      setNoteGenerated(!!(response.consultation.doctorSummary || response.consultation.patientNote));
     } catch (err: any) {
       setError(err.message || 'Failed to load consultation');
     } finally {
@@ -250,6 +251,34 @@ export default function ActiveConsultationPage() {
           <Alert severity="info" sx={{ mb: 2 }}>
             Connecting to server...
           </Alert>
+        )}
+
+        {/* Patient Information */}
+        {consultation?.patient && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Person color="primary" />
+                <Typography variant="h6">Patient Information</Typography>
+              </Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Name</Typography>
+                  <Typography variant="body1">{consultation.patient.name}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Date of Birth</Typography>
+                  <Typography variant="body1">
+                    {new Date(consultation.patient.dateOfBirth).toLocaleDateString()}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">MRN</Typography>
+                  <Typography variant="body1">{consultation.patient.mrn}</Typography>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
         )}
 
         <Card sx={{ mb: 3 }}>

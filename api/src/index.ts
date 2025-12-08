@@ -9,14 +9,8 @@ import { join } from 'path';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
 import consultationRoutes from './routes/consultations';
+import patientRoutes from './routes/patients';
 import { setupWebSocketServer } from './ws/server';
-
-// Log dotenv configuration
-console.log('\n=== Loading Environment Variables ===');
-const envPath = join(process.cwd(), '.env');
-console.log(`Looking for .env file at: ${envPath}`);
-console.log(`Current working directory: ${process.cwd()}`);
-console.log(`.env file exists: ${existsSync(envPath)}`);
 
 // Load environment variables
 const dotenvResult = dotenv.config();
@@ -24,33 +18,19 @@ if (dotenvResult.error) {
   console.warn(`Warning: Error loading .env file: ${dotenvResult.error.message}`);
 } else if (dotenvResult.parsed) {
   console.log(`✓ Loaded ${Object.keys(dotenvResult.parsed).length} variables from .env file`);
-  const loadedKeys = Object.keys(dotenvResult.parsed);
-  console.log(`Loaded keys: ${loadedKeys.join(', ')}`);
-} else {
-  console.warn('⚠ No .env file found or no variables parsed');
 }
-
-// Also check if variables are set in process.env (from system environment)
-console.log(`\nChecking process.env directly (system environment)...`);
 
 // Log environment variable status (without exposing values)
 const logEnvVarStatus = (key: string) => {
   const value = process.env[key];
-  if (value) {
-    const masked = value.length > 8 
-      ? `${value.substring(0, 4)}...${value.substring(value.length - 4)}` 
-      : '***';
-    console.log(`✓ ${key} is set (${masked}, length: ${value.length})`);
-    return true;
-  } else {
-    console.warn(`✗ ${key} is NOT set`);
-    return false;
+  if (!value) {
+    console.warn(`⚠ ${key} is NOT set`);
   }
 };
 
 console.log('\n=== Environment Variables Status ===');
-const openaiSet = logEnvVarStatus('OPENAI_API_KEY');
-const deepgramSet = logEnvVarStatus('DEEPGRAM_API_KEY');
+logEnvVarStatus('OPENAI_API_KEY');
+logEnvVarStatus('DEEPGRAM_API_KEY');
 logEnvVarStatus('JWT_SECRET');
 logEnvVarStatus('MONGODB_URI');
 logEnvVarStatus('ENCRYPTION_KEY');
@@ -73,6 +53,7 @@ app.use(cookieParser());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/consultations', consultationRoutes);
+app.use('/api/patients', patientRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

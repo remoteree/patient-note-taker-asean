@@ -21,9 +21,6 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = tokenStorage.get();
-  console.log(`[API Client] ${options.method || 'GET'} ${endpoint}`);
-  console.log(`[API Client] Token from localStorage: ${token ? `present (length: ${token.length})` : 'missing'}`);
-  
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -31,9 +28,6 @@ async function request<T>(
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
-    console.log(`[API Client] Authorization header set: Bearer ${token.substring(0, 20)}...${token.substring(token.length - 20)}`);
-  } else {
-    console.warn(`[API Client] No token found in localStorage for ${endpoint}`);
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

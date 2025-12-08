@@ -49,19 +49,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const login = async (email: string, password: string) => {
-    console.log('[useAuth] Login attempt for:', email);
     const response = await authApi.login({ email, password });
-    console.log('[useAuth] Login response received');
-    console.log('[useAuth] Response has token:', !!response.token);
     if (response.token) {
-      console.log('[useAuth] Token length:', response.token.length);
-      console.log('[useAuth] Token preview:', response.token.substring(0, 20) + '...' + response.token.substring(response.token.length - 20));
       tokenStorage.set(response.token);
-      const storedToken = tokenStorage.get();
-      console.log('[useAuth] Token stored in localStorage:', storedToken ? `present (length: ${storedToken.length})` : 'missing');
-      console.log('[useAuth] Stored token matches received:', storedToken === response.token);
-    } else {
-      console.error('[useAuth] No token in login response!');
     }
     setUser(response.user);
   };

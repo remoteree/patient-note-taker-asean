@@ -1,7 +1,13 @@
 import OpenAI from 'openai';
 
+export interface NoteGenerationResult {
+  doctorSummary: string;
+  patientNote: string;
+  tags: string[];
+}
+
 export interface NoteService {
-  generateNote(transcript: string): Promise<string>;
+  generateNotes(transcript: string): Promise<NoteGenerationResult>;
 }
 
 class OpenAINoteService implements NoteService {
@@ -9,33 +15,14 @@ class OpenAINoteService implements NoteService {
 
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
-    console.log('\n[OpenAINoteService] Initializing...');
-    console.log(`[OpenAINoteService] Checking OPENAI_API_KEY from process.env...`);
-    console.log(`[OpenAINoteService] process.env.OPENAI_API_KEY type: ${typeof apiKey}`);
-    console.log(`[OpenAINoteService] process.env.OPENAI_API_KEY exists: ${apiKey !== undefined}`);
-    console.log(`[OpenAINoteService] process.env.OPENAI_API_KEY is truthy: ${!!apiKey}`);
-    console.log(`[OpenAINoteService] process.env.OPENAI_API_KEY length: ${apiKey?.length || 0}`);
-    
     if (apiKey) {
-      const masked = apiKey.length > 8 
-        ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` 
-        : '***';
-      console.log(`[OpenAINoteService] ✓ OPENAI_API_KEY found (${masked}, length: ${apiKey.length})`);
-      console.log(`[OpenAINoteService] Initializing OpenAI client...`);
-      try {
-        this.openai = new OpenAI({ apiKey });
-        console.log(`[OpenAINoteService] ✓ OpenAI client initialized successfully`);
-      } catch (error) {
-        console.error(`[OpenAINoteService] ✗ Failed to initialize OpenAI client:`, error);
-      }
+      this.openai = new OpenAI({ apiKey });
     } else {
-      console.warn('[OpenAINoteService] ✗ OPENAI_API_KEY not set. Note generation will not work.');
-      console.warn('[OpenAINoteService] Available env vars:', Object.keys(process.env).filter(k => k.includes('OPENAI')));
+      console.warn('OPENAI_API_KEY not set. Note generation will not work.');
     }
-    console.log('[OpenAINoteService] Initialization complete\n');
   }
 
-  async generateNote(transcript: string): Promise<string> {
+  async generateNotes(transcript: string): Promise<NoteGenerationResult> {
     if (!this.openai) {
       throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
     }
@@ -44,28 +31,27 @@ class OpenAINoteService implements NoteService {
       throw new Error('Transcript is empty');
     }
 
-    const systemPrompt = `You are a medical assistant that helps doctors create structured clinical notes from consultation transcripts. 
-Generate a professional SOAP (Subjective, Objective, Assessment, Plan) format clinical note based on the consultation transcript.
-Focus on extracting key medical information, symptoms, observations, assessments, and treatment plans.
-Keep the note concise, professional, and clinically accurate.`;
+    const systemPrompt = `You are a medical assistant that helps doctors create structured clinical documentation from consultation transcripts.
+You will generate two separate documents:
+1. A detailed clinical summary for the doctor (with searchable tags)
+2. A clear, patient-friendly note with instructions
 
-    const userPrompt = `Please generate a structured clinical note in SOAP format from the following consultation transcript:
+For the doctor summary, use SOAP format and include relevant medical terminology.
+For the patient note, use plain language and focus on clear instructions and follow-up actions.
+Extract relevant tags for easy searching (e.g., diagnosis codes, symptoms, conditions, medications).`;
+
+    const userPrompt = `Please generate both documents from the following consultation transcript:
 
 ${transcript}
 
-Format the note as follows:
+Generate the response in the following JSON format:
+{
+  "doctorSummary": "Detailed SOAP format note with:\n\nSUBJECTIVE:\n[Patient's reported symptoms, history, concerns]\n\nOBJECTIVE:\n[Observable findings, vital signs, examination findings]\n\nASSESSMENT:\n[Clinical assessment, diagnosis, differential diagnosis]\n\nPLAN:\n[Treatment plan, medications, follow-up instructions, referrals]",
+  "patientNote": "Clear, patient-friendly note with:\n- Brief summary of what was discussed\n- Clear indications/diagnosis in plain language\n- Specific instructions for the patient\n- Follow-up actions and when to return\n- Medication instructions if applicable\n- Any warnings or important information",
+  "tags": ["tag1", "tag2", "tag3"]
+}
 
-SUBJECTIVE:
-[Patient's reported symptoms, history, and concerns]
-
-OBJECTIVE:
-[Observable findings, vital signs if mentioned, examination findings]
-
-ASSESSMENT:
-[Clinical assessment, diagnosis, or differential diagnosis]
-
-PLAN:
-[Treatment plan, medications, follow-up instructions, referrals if any]`;
+The tags should be relevant medical terms, diagnoses, symptoms, or conditions mentioned in the consultation. Use 3-8 tags.`;
 
     try {
       const completion = await this.openai.chat.completions.create({
@@ -75,18 +61,29 @@ PLAN:
           { role: 'user', content: userPrompt },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 3000,
+        response_format: { type: 'json_object' },
       });
 
-      const note = completion.choices[0]?.message?.content;
-      if (!note) {
+      const response = completion.choices[0]?.message?.content;
+      if (!response) {
         throw new Error('No response from OpenAI');
       }
 
-      return note;
+      const parsed = JSON.parse(response);
+      
+      if (!parsed.doctorSummary || !parsed.patientNote || !Array.isArray(parsed.tags)) {
+        throw new Error('Invalid response format from OpenAI');
+      }
+
+      return {
+        doctorSummary: parsed.doctorSummary,
+        patientNote: parsed.patientNote,
+        tags: parsed.tags,
+      };
     } catch (error: any) {
       console.error('OpenAI API error:', error);
-      throw new Error(`Failed to generate note: ${error.message || 'Unknown error'}`);
+      throw new Error(`Failed to generate notes: ${error.message || 'Unknown error'}`);
     }
   }
 }

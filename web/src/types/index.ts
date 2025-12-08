@@ -7,13 +7,26 @@ export interface User {
   country: string;
 }
 
+export interface Patient {
+  id: string;
+  name: string;
+  dateOfBirth: string;
+  mrn: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ConsultationStatus = 'in_progress' | 'processing' | 'completed' | 'failed';
 
 export interface Consultation {
   id: string;
   userId: string;
+  patientId: string;
+  patient?: Patient;
   transcript: string;
-  note: string | null;
+  doctorSummary: string | null;
+  patientNote: string | null;
+  tags: string[];
   status: ConsultationStatus;
   createdAt: string;
   updatedAt: string;

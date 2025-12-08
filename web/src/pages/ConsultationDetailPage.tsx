@@ -14,8 +14,10 @@ import {
   Alert,
   Chip,
   Divider,
+  Grid,
+  Paper,
 } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { ArrowBack, Person, LocalHospital } from '@mui/icons-material';
 import { consultationsApi } from '../api/consultations';
 import { Consultation } from '../types';
 
@@ -44,6 +46,10 @@ export default function ConsultationDetailPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  const formatDOB = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getStatusColor = (status: Consultation['status']) => {
@@ -104,6 +110,48 @@ export default function ConsultationDetailPage() {
           Created: {formatDate(consultation.createdAt)}
         </Typography>
 
+        {/* Patient Information */}
+        {consultation.patient && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Person color="primary" />
+                <Typography variant="h6">Patient Information</Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Name</Typography>
+                  <Typography variant="body1">{consultation.patient.name}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">Date of Birth</Typography>
+                  <Typography variant="body1">{formatDOB(consultation.patient.dateOfBirth)}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <Typography variant="body2" color="text.secondary">MRN</Typography>
+                  <Typography variant="body1">{consultation.patient.mrn}</Typography>
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Tags */}
+        {consultation.tags && consultation.tags.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Tags:
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {consultation.tags.map((tag, idx) => (
+                <Chip key={idx} label={tag} size="small" variant="outlined" />
+              ))}
+            </Box>
+          </Box>
+        )}
+
+        {/* Transcript */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
@@ -116,16 +164,36 @@ export default function ConsultationDetailPage() {
           </CardContent>
         </Card>
 
-        {consultation.note && (
-          <Card>
+        {/* Doctor Summary */}
+        {consultation.doctorSummary && (
+          <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Generated Note
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <LocalHospital color="primary" />
+                <Typography variant="h6">Clinical Summary (For Doctor)</Typography>
+              </Box>
               <Divider sx={{ mb: 2 }} />
               <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                {consultation.note}
+                {consultation.doctorSummary}
               </Typography>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Patient Note */}
+        {consultation.patientNote && (
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Person color="primary" />
+                <Typography variant="h6">Patient Note</Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {consultation.patientNote}
+                </Typography>
+              </Paper>
             </CardContent>
           </Card>
         )}

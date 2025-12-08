@@ -5,8 +5,11 @@ export type ConsultationStatus = 'in_progress' | 'processing' | 'completed' | 'f
 
 export interface IConsultation extends Document {
   userId: mongoose.Types.ObjectId;
+  patientId: mongoose.Types.ObjectId;
   transcript: string;
-  note: string | null;
+  doctorSummary: string | null;
+  patientNote: string | null;
+  tags: string[];
   status: ConsultationStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -18,13 +21,26 @@ const ConsultationSchema = new Schema<IConsultation>({
     ref: 'User',
     required: true,
   },
+  patientId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Patient',
+    required: true,
+  },
   transcript: {
     type: String,
     default: '',
   },
-  note: {
+  doctorSummary: {
     type: String,
     default: null,
+  },
+  patientNote: {
+    type: String,
+    default: null,
+  },
+  tags: {
+    type: [String],
+    default: [],
   },
   status: {
     type: String,
@@ -40,8 +56,11 @@ ConsultationSchema.pre('save', function (next) {
   if (this.isModified('transcript') && this.transcript) {
     this.transcript = encryptionService.encrypt(this.transcript);
   }
-  if (this.isModified('note') && this.note) {
-    this.note = encryptionService.encrypt(this.note);
+  if (this.isModified('doctorSummary') && this.doctorSummary) {
+    this.doctorSummary = encryptionService.encrypt(this.doctorSummary);
+  }
+  if (this.isModified('patientNote') && this.patientNote) {
+    this.patientNote = encryptionService.encrypt(this.patientNote);
   }
   next();
 });
@@ -53,8 +72,11 @@ ConsultationSchema.post('find', function (docs) {
       if (doc.transcript) {
         doc.transcript = encryptionService.decrypt(doc.transcript);
       }
-      if (doc.note) {
-        doc.note = encryptionService.decrypt(doc.note);
+      if (doc.doctorSummary) {
+        doc.doctorSummary = encryptionService.decrypt(doc.doctorSummary);
+      }
+      if (doc.patientNote) {
+        doc.patientNote = encryptionService.decrypt(doc.patientNote);
       }
     });
   }
@@ -65,8 +87,11 @@ ConsultationSchema.post('findOne', function (doc) {
     if (doc.transcript) {
       doc.transcript = encryptionService.decrypt(doc.transcript);
     }
-    if (doc.note) {
-      doc.note = encryptionService.decrypt(doc.note);
+    if (doc.doctorSummary) {
+      doc.doctorSummary = encryptionService.decrypt(doc.doctorSummary);
+    }
+    if (doc.patientNote) {
+      doc.patientNote = encryptionService.decrypt(doc.patientNote);
     }
   }
 });
@@ -76,8 +101,11 @@ ConsultationSchema.post('findOneAndUpdate', function (doc) {
     if (doc.transcript) {
       doc.transcript = encryptionService.decrypt(doc.transcript);
     }
-    if (doc.note) {
-      doc.note = encryptionService.decrypt(doc.note);
+    if (doc.doctorSummary) {
+      doc.doctorSummary = encryptionService.decrypt(doc.doctorSummary);
+    }
+    if (doc.patientNote) {
+      doc.patientNote = encryptionService.decrypt(doc.patientNote);
     }
   }
 });

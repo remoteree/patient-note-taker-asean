@@ -5,10 +5,7 @@ import { AuthRequest } from '../middleware/auth';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config/jwt';
 
 const createToken = (userId: string) => {
-  console.log(`[AuthController] Creating token with JWT_SECRET length: ${JWT_SECRET.length}, starts with: ${JWT_SECRET.substring(0, 4)}...`);
-  const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  console.log(`[AuthController] Token created for userId: ${userId}, token length: ${token.length}`);
-  return token;
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 };
 
 export const signup = async (req: Request, res: Response) => {
