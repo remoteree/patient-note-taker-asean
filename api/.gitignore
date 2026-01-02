@@ -4,6 +4,9 @@ dist/
 *.log
 recordings/
 venv
+deploy/
+deploy.zip
+.ebextensions/
 
 
 

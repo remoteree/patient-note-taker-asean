@@ -15,7 +15,6 @@ import {
   Alert,
   Chip,
   Grid,
-  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,7 +24,6 @@ import {
   Switch,
 } from '@mui/material';
 import { ArrowBack, Mic, Stop, CheckCircle, Person, Info } from '@mui/icons-material';
-import { useAuth } from '../hooks/useAuth';
 import { consultationsApi } from '../api/consultations';
 import { Consultation } from '../types';
 import { tokenStorage } from '../api/client';
@@ -33,7 +31,6 @@ import { tokenStorage } from '../api/client';
 export default function ActiveConsultationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -46,7 +43,7 @@ export default function ActiveConsultationPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioProcessorRef = useRef<ScriptProcessorNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<{ sendAudioChunk: (chunk: ArrayBuffer) => void; closeConnection: () => void } | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [wsError, setWsError] = useState<string | null>(null);
@@ -100,7 +97,6 @@ export default function ActiveConsultationPage() {
           if (newTime >= maxRecordingDuration) {
             console.log(`[RECORDING] Maximum recording duration (${maxRecordingDuration}s) reached, stopping recording`);
             // Stop recording first, then show dialog
-            const wasCloudMode = true; // Always cloud mode now
             
             // Stop Web Audio API (cloud mode)
             if (audioProcessorRef.current) {
@@ -189,8 +185,6 @@ export default function ActiveConsultationPage() {
       setLoading(false);
     }
   };
-
-  const isLocalMode = false; // Local mode removed
 
   const handleTranscriptUpdate = (newTranscript: string) => {
     // Always update transcript - never clear it

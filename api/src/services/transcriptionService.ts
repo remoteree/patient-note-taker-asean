@@ -85,17 +85,17 @@ class HybridTranscriptionService implements TranscriptionService {
 
     if (!config) {
       // Default to ElevenLabs for backward compatibility
-      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs as any);
     }
 
     // Route to appropriate cloud provider
     if (config.cloudProvider === 'aws') {
       // AWS Transcribe: Treat each periodic chunk as a complete recording
       console.log(`[TRANSCRIPTION] Processing partial recording with AWS Transcribe (treating chunk as complete recording)`);
-      return this.awsTranscribeBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+      return this.awsTranscribeBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs as any);
     } else {
       // ElevenLabs supports periodic transcription
-      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs as any);
     }
   }
 

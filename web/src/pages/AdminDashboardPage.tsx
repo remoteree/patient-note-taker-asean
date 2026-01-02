@@ -5,8 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
   AppBar,
   Toolbar,
   IconButton,

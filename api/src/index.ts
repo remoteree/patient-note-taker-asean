@@ -39,14 +39,19 @@ logEnvVarStatus('ENCRYPTION_KEY');
 console.log('====================================\n');
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = parseInt(process.env.PORT || '3002', 10);
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/doc-ai';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';
 
 // Middleware
+// In production, if serving frontend from backend, allow same origin
+// Otherwise use CORS_ORIGIN env var or default
+const corsOrigin = isProduction && !process.env.CORS_ORIGIN 
+  ? true // Allow same origin when serving frontend from backend
+  : (process.env.CORS_ORIGIN || (isProduction ? 'https://localhost:5173' : 'http://localhost:5173'));
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || (isProduction ? 'https://localhost:5173' : 'http://localhost:5173'),
+  origin: corsOrigin,
   credentials: true,
 }));
 app.use(express.json());
@@ -58,10 +63,53 @@ app.use('/api/consultations', consultationRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Health check
+// Health check endpoints
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', encryption: 'enabled' });
 });
+
+// Serve static files from public directory (for production frontend build)
+// In compiled code, __dirname is 'dist', and public is at 'dist/public'
+const publicPath = join(__dirname, './public');
+console.log(`[STATIC] Looking for public directory at: ${publicPath}`);
+console.log(`[STATIC] Public directory exists: ${existsSync(publicPath)}`);
+if (existsSync(publicPath)) {
+  const indexPath = join(publicPath, 'index.html');
+  console.log(`[STATIC] Looking for index.html at: ${indexPath}`);
+  console.log(`[STATIC] index.html exists: ${existsSync(indexPath)}`);
+  app.use(express.static(publicPath));
+  
+  // Root route - serve index.html for Elastic Beanstalk health checker
+  app.get('/', (req, res) => {
+    const indexPath = join(publicPath, 'index.html');
+    if (existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.json({ status: 'ok', message: 'API server is running' });
+    }
+  });
+  
+  // Handle React Router (SPA) - serve index.html for all non-API routes
+  app.get('*', (req, res, next) => {
+    // Skip API routes and WebSocket routes
+    if (req.path.startsWith('/api') || req.path.startsWith('/ws')) {
+      return next();
+    }
+    const indexPath = join(publicPath, 'index.html');
+    if (existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      next();
+    }
+  });
+} else {
+  console.warn('⚠️  Public directory not found. Frontend will not be served.');
+  
+  // Fallback root route for health check
+  app.get('/', (req, res) => {
+    res.json({ status: 'ok', message: 'API server is running' });
+  });
+}
 
 // Create server (HTTP or HTTPS based on environment)
 let server;
@@ -122,9 +170,10 @@ mongoose.connect(MONGODB_URI, mongooseOptions)
       console.error('[INIT] Error initializing transcription configs:', error);
     }
     
-    server.listen(PORT, () => {
+    // Listen on 0.0.0.0 to accept connections from nginx proxy
+    server.listen(PORT, '0.0.0.0', () => {
       const protocol = server instanceof createHttpsServer ? 'https' : 'http';
-      console.log(`Server running on ${protocol}://localhost:${PORT}`);
+      console.log(`Server running on ${protocol}://0.0.0.0:${PORT}`);
       if (!isProduction && protocol === 'http') {
         console.log('Note: For production, configure HTTPS with SSL_CERT_PATH and SSL_KEY_PATH');
       }

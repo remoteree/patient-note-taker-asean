@@ -16,7 +16,6 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-  TextField,
   MenuItem,
   FormControl,
   InputLabel,
@@ -25,7 +24,6 @@ import {
 import { Logout, Add, AdminPanelSettings } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { consultationsApi } from '../api/consultations';
-import { patientsApi } from '../api/patients';
 import { Consultation, Patient, ConsultationLanguage } from '../types';
 import PatientSearchDialog from '../components/PatientSearchDialog';
 
@@ -253,7 +251,7 @@ export default function DashboardPage() {
       <PatientSearchDialog
         open={patientSearchOpen}
         onClose={() => setPatientSearchOpen(false)}
-        onSelectPatient={(patient, mode, language) => handleSelectPatient(patient, mode, language)}
+        onSelectPatient={(patient, language) => handleSelectPatient(patient, language)}
       />
     </Box>
   );

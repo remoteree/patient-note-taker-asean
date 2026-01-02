@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/auth';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config/jwt';
 
 const createToken = (userId: string) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions);
 };
 
 export const signup = async (req: Request, res: Response) => {

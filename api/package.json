@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "create-admin": "tsx src/scripts/createAdminUser.ts",
-    "delete-empty-consultations": "tsx scripts/delete-consultations-without-transcript.ts"
+    "delete-empty-consultations": "tsx scripts/delete-consultations-without-transcript.ts",
+    "deploy": "tsx scripts/deploy.ts"
   },
   "keywords": [],
   "author": "",
@@ -39,6 +40,7 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.10.5",
     "@types/ws": "^8.5.10",
+    "archiver": "^7.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
