@@ -16,3 +16,7 @@ router.post('/', createPatient);
 
 export default router;
 
+
+
+
+

@@ -1,6 +1,8 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export type UserRole = 'user' | 'admin';
+
 export interface IUser extends Document {
   email: string;
   password: string;
@@ -8,6 +10,7 @@ export interface IUser extends Document {
   specialization: string;
   clinicName: string;
   country: string;
+  role: UserRole;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -39,6 +42,12 @@ const UserSchema = new Schema<IUser>({
     type: String,
     required: true,
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+    required: true,
+  },
 }, {
   timestamps: true,
 });
@@ -56,6 +65,10 @@ UserSchema.methods.comparePassword = async function (candidatePassword: string):
 };
 
 export default mongoose.model<IUser>('User', UserSchema);
+
+
+
+
 
 
 

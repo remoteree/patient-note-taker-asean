@@ -41,3 +41,7 @@ PatientSchema.index({ userId: 1, name: 'text', mrn: 'text' });
 
 export default mongoose.model<IPatient>('Patient', PatientSchema);
 
+
+
+
+

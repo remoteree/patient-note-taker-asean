@@ -5,6 +5,7 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import ActiveConsultationPage from './pages/ActiveConsultationPage';
 import ConsultationDetailPage from './pages/ConsultationDetailPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -34,6 +35,10 @@ function AppRoutes() {
       <Route
         path="/consultations/:id/detail"
         element={user ? <ConsultationDetailPage /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/admin"
+        element={user?.role === 'admin' ? <AdminDashboardPage /> : <Navigate to="/dashboard" replace />}
       />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
     </Routes>

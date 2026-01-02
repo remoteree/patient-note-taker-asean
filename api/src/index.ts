@@ -10,7 +10,9 @@ import mongoose from 'mongoose';
 import authRoutes from './routes/auth';
 import consultationRoutes from './routes/consultations';
 import patientRoutes from './routes/patients';
+import adminRoutes from './routes/admin';
 import { setupWebSocketServer } from './ws/server';
+import TranscriptionConfig from './models/TranscriptionConfig';
 
 // Load environment variables
 const dotenvResult = dotenv.config();
@@ -37,7 +39,7 @@ logEnvVarStatus('ENCRYPTION_KEY');
 console.log('====================================\n');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/doc-ai';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const isProduction = NODE_ENV === 'production';
@@ -54,6 +56,7 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/consultations', consultationRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -104,8 +107,21 @@ const mongooseOptions: mongoose.ConnectOptions = {
 };
 
 mongoose.connect(MONGODB_URI, mongooseOptions)
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB' + (mongooseOptions.tls ? ' (with TLS)' : ''));
+    
+    // Initialize transcription config defaults if none exist
+    try {
+      const configCount = await TranscriptionConfig.countDocuments();
+      if (configCount === 0) {
+        console.log('[INIT] Initializing default transcription configurations...');
+        await TranscriptionConfig.initializeDefaults();
+        console.log('[INIT] Default transcription configurations created');
+      }
+    } catch (error) {
+      console.error('[INIT] Error initializing transcription configs:', error);
+    }
+    
     server.listen(PORT, () => {
       const protocol = server instanceof createHttpsServer ? 'https' : 'http';
       console.log(`Server running on ${protocol}://localhost:${PORT}`);

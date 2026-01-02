@@ -1,15 +1,146 @@
 import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 import { WebSocket } from 'ws';
+import { ElevenLabsBatchService } from './elevenLabsBatchService';
+import { AWSTranscribeBatchService } from './awsTranscribeBatchService';
+import TranscriptionConfig from '../models/TranscriptionConfig';
+
+import { ConsultationLanguage } from '../models/Consultation';
 
 export interface TranscriptionService {
-  startSession(consultationId: string, clientWs: WebSocket): Promise<void>;
+  startSession(consultationId: string, clientWs: WebSocket, language: ConsultationLanguage, enableLanguageDetection?: boolean): Promise<void>;
   ingestChunk(consultationId: string, chunk: Buffer): void;
   getTranscript(consultationId: string): string;
   endSession(consultationId: string): Promise<string>;
   clearTranscript(consultationId: string): void;
+  startBatchTranscription(consultationId: string, audioFilePath: string, languageCode: string, clientWs?: WebSocket): Promise<void>;
 }
 
-class DeepgramTranscriptionService implements TranscriptionService {
+class HybridTranscriptionService implements TranscriptionService {
+  private deepgramService: DeepgramTranscriptionService;
+  private elevenLabsBatchService: ElevenLabsBatchService;
+  private awsTranscribeBatchService: AWSTranscribeBatchService;
+  private activeService: Map<string, 'deepgram'> = new Map();
+
+  constructor() {
+    this.deepgramService = new DeepgramTranscriptionService();
+    this.elevenLabsBatchService = new ElevenLabsBatchService();
+    this.awsTranscribeBatchService = new AWSTranscribeBatchService();
+  }
+
+  async startSession(consultationId: string, clientWs: WebSocket, language: ConsultationLanguage, enableLanguageDetection: boolean = false): Promise<void> {
+    // ElevenLabs batch mode languages (bn, th, ms, auto) are handled separately in WebSocket server
+    // Only route English to Deepgram realtime streaming
+    const useElevenLabsBatch = ['bn', 'th', 'ms', 'auto'].includes(language);
+    
+    if (useElevenLabsBatch) {
+      // This should not be called for ElevenLabs batch languages - batch mode is handled in WebSocket server
+      throw new Error(`${language} consultations use ElevenLabs batch mode, not realtime streaming`);
+    } else {
+      // Route only English to Deepgram realtime
+      console.log(`[TRANSCRIPTION] Routing ${language} consultation ${consultationId} to Deepgram (realtime)`);
+      this.activeService.set(consultationId, 'deepgram');
+      return this.deepgramService.startSession(consultationId, clientWs, language, enableLanguageDetection);
+    }
+  }
+
+  async startBatchTranscription(consultationId: string, audioFilePath: string, languageCode: string, clientWs?: WebSocket): Promise<void> {
+    // Get transcription configuration for this language
+    const config = await TranscriptionConfig.findOne({ 
+      language: languageCode,
+      enabled: true 
+    });
+
+    if (!config) {
+      throw new Error(`No transcription configuration found for language: ${languageCode}`);
+    }
+
+    // Route to appropriate cloud provider based on configuration
+    const cloudProvider = config.cloudProvider;
+
+    if (cloudProvider === 'aws') {
+      console.log(`[TRANSCRIPTION] Routing ${languageCode} consultation ${consultationId} to AWS Transcribe (batch)`);
+      return this.awsTranscribeBatchService.startBatchTranscription(consultationId, audioFilePath, languageCode, clientWs);
+    } else if (cloudProvider === 'elevenlabs') {
+      console.log(`[TRANSCRIPTION] Routing ${languageCode} consultation ${consultationId} to ElevenLabs (batch)`);
+      return this.elevenLabsBatchService.startBatchTranscription(consultationId, audioFilePath, languageCode, clientWs);
+    } else {
+      // Default to ElevenLabs for backward compatibility
+      console.log(`[TRANSCRIPTION] Defaulting to ElevenLabs for ${languageCode} consultation ${consultationId}`);
+      return this.elevenLabsBatchService.startBatchTranscription(consultationId, audioFilePath, languageCode, clientWs);
+    }
+  }
+
+  async processPartialRecording(
+    consultationId: string,
+    audioFilePath: string,
+    startTime: number,
+    languageCode: string,
+    clientWs?: WebSocket
+  ): Promise<void> {
+    // Get transcription configuration for this language
+    const config = await TranscriptionConfig.findOne({ 
+      language: languageCode,
+      enabled: true 
+    });
+
+    if (!config) {
+      // Default to ElevenLabs for backward compatibility
+      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+    }
+
+    // Route to appropriate cloud provider
+    if (config.cloudProvider === 'aws') {
+      // AWS Transcribe: Treat each periodic chunk as a complete recording
+      console.log(`[TRANSCRIPTION] Processing partial recording with AWS Transcribe (treating chunk as complete recording)`);
+      return this.awsTranscribeBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+    } else {
+      // ElevenLabs supports periodic transcription
+      return this.elevenLabsBatchService.processPartialRecording(consultationId, audioFilePath, startTime, languageCode, clientWs);
+    }
+  }
+
+  ingestChunk(consultationId: string, chunk: Buffer): void {
+    const service = this.activeService.get(consultationId);
+    if (service === 'deepgram') {
+      this.deepgramService.ingestChunk(consultationId, chunk);
+    }
+    // Bengali consultations don't use ingestChunk - they use batch mode
+  }
+
+  getTranscript(consultationId: string): string {
+    const service = this.activeService.get(consultationId);
+    if (service === 'deepgram') {
+      return this.deepgramService.getTranscript(consultationId);
+    }
+    // For batch mode, try both services (transcript is stored in database anyway)
+    const elevenLabsTranscript = this.elevenLabsBatchService.getTranscript(consultationId);
+    const awsTranscript = this.awsTranscribeBatchService.getTranscript(consultationId);
+    return elevenLabsTranscript || awsTranscript;
+  }
+
+  async endSession(consultationId: string): Promise<string> {
+    const service = this.activeService.get(consultationId);
+    this.activeService.delete(consultationId);
+    
+    if (service === 'deepgram') {
+      return this.deepgramService.endSession(consultationId);
+    }
+    // Bengali batch mode doesn't use endSession
+    return '';
+  }
+
+  clearTranscript(consultationId: string): void {
+    const service = this.activeService.get(consultationId);
+    this.activeService.delete(consultationId);
+    
+    if (service === 'deepgram') {
+      this.deepgramService.clearTranscript(consultationId);
+    }
+    // Bengali batch mode cleanup handled by batch service
+  }
+}
+
+class DeepgramTranscriptionService {
   private deepgramApiKey: string;
   private sessions: Map<string, {
     deepgramConnection: any;
@@ -21,24 +152,49 @@ class DeepgramTranscriptionService implements TranscriptionService {
   constructor() {
     this.deepgramApiKey = process.env.DEEPGRAM_API_KEY || '';
     if (!this.deepgramApiKey) {
-      console.warn('DEEPGRAM_API_KEY not set. Transcription will not work.');
+      console.warn('DEEPGRAM_API_KEY not set. English transcription will not work.');
     }
   }
 
-  async startSession(consultationId: string, clientWs: WebSocket): Promise<void> {
+  async startSession(consultationId: string, clientWs: WebSocket, language: ConsultationLanguage, enableLanguageDetection: boolean = false): Promise<void> {
     if (!this.deepgramApiKey) {
       throw new Error('Deepgram API key not configured');
     }
 
+    // Map language codes to Deepgram format
+    // Deepgram supports: en-US, th, ms, and auto-detection
+    let deepgramLanguage: string | undefined;
+    if (language === 'en') {
+      deepgramLanguage = 'en-US';
+    } else if (language === 'th') {
+      deepgramLanguage = 'th';
+    } else if (language === 'ms') {
+      deepgramLanguage = 'ms';
+    } else if (language === 'auto') {
+      // Deepgram will auto-detect if language is undefined
+      deepgramLanguage = undefined;
+    } else {
+      // Default to English for unknown languages
+      deepgramLanguage = 'en-US';
+    }
+    
+    console.log(`[TRANSCRIPTION] Starting Deepgram session for consultation ${consultationId} with language: ${deepgramLanguage || 'auto-detect'}`);
+
     const deepgram = createClient(this.deepgramApiKey);
-    const connection = deepgram.listen.live({
+    const connectionOptions: any = {
       model: 'nova-2',
-      language: 'en-US',
       smart_format: true,
       interim_results: true,
       punctuate: true,
       diarize: false,
-    });
+    };
+    
+    // Only set language if specified (undefined means auto-detect)
+    if (deepgramLanguage) {
+      connectionOptions.language = deepgramLanguage;
+    }
+    
+    const connection = deepgram.listen.live(connectionOptions);
 
     // Initialize session
     const session = {
@@ -107,7 +263,7 @@ class DeepgramTranscriptionService implements TranscriptionService {
   ingestChunk(consultationId: string, chunk: Buffer): void {
     const session = this.sessions.get(consultationId);
     if (!session || !session.deepgramConnection) {
-      console.warn(`No active session for consultation ${consultationId}`);
+      console.warn(`No active Deepgram session for consultation ${consultationId}`);
       return;
     }
 
@@ -151,4 +307,4 @@ class DeepgramTranscriptionService implements TranscriptionService {
   }
 }
 
-export const transcriptionService = new DeepgramTranscriptionService();
+export const transcriptionService = new HybridTranscriptionService();

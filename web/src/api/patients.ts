@@ -10,3 +10,7 @@ export const patientsApi = {
     api.post<{ patient: Patient }>('/patients', data),
 };
 
+
+
+
+

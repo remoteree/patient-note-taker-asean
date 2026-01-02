@@ -22,11 +22,11 @@ import {
   InputLabel,
   Select,
 } from '@mui/material';
-import { Logout, Add } from '@mui/icons-material';
+import { Logout, Add, AdminPanelSettings } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { consultationsApi } from '../api/consultations';
 import { patientsApi } from '../api/patients';
-import { Consultation, Patient } from '../types';
+import { Consultation, Patient, ConsultationLanguage } from '../types';
 import PatientSearchDialog from '../components/PatientSearchDialog';
 
 export default function DashboardPage() {
@@ -89,9 +89,9 @@ export default function DashboardPage() {
     setPatientSearchOpen(true);
   };
 
-  const handleSelectPatient = async (patient: Patient) => {
+  const handleSelectPatient = async (patient: Patient, language: ConsultationLanguage = 'bn') => {
     try {
-      const response = await consultationsApi.createConsultation(patient.id);
+      const response = await consultationsApi.createConsultation(patient.id, language);
       navigate(`/consultations/${response.consultation.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create consultation');
@@ -140,6 +140,16 @@ export default function DashboardPage() {
           <Typography variant="body2" sx={{ mr: 2 }}>
             {user?.name}
           </Typography>
+          {user?.role === 'admin' && (
+            <Button
+              color="inherit"
+              startIcon={<AdminPanelSettings />}
+              onClick={() => navigate('/admin')}
+              sx={{ mr: 1 }}
+            >
+              Admin
+            </Button>
+          )}
           <IconButton color="inherit" onClick={handleLogout}>
             <Logout />
           </IconButton>
@@ -243,7 +253,7 @@ export default function DashboardPage() {
       <PatientSearchDialog
         open={patientSearchOpen}
         onClose={() => setPatientSearchOpen(false)}
-        onSelectPatient={handleSelectPatient}
+        onSelectPatient={(patient, mode, language) => handleSelectPatient(patient, mode, language)}
       />
     </Box>
   );

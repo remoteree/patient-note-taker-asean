@@ -1,9 +1,9 @@
 import { api } from './client';
-import { Consultation } from '../types';
+import { Consultation, ConsultationLanguage } from '../types';
 
 export const consultationsApi = {
-  createConsultation: (patientId: string) =>
-    api.post<{ consultation: Consultation }>('/consultations', { patientId }),
+  createConsultation: (patientId: string, language: ConsultationLanguage = 'bn') =>
+    api.post<{ consultation: Consultation }>('/consultations', { patientId, language }),
   getConsultations: (patientId?: string) => {
     const url = patientId ? `/consultations?patientId=${patientId}` : '/consultations';
     return api.get<{ consultations: Consultation[] }>(url);

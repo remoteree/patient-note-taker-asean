@@ -16,15 +16,24 @@ import {
   Typography,
   Divider,
   IconButton,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Paper,
+  Select,
+  MenuItem,
+  InputLabel,
 } from '@mui/material';
 import { Search, Add, Close } from '@mui/icons-material';
 import { patientsApi } from '../api/patients';
-import { Patient } from '../types';
+import { Patient, ConsultationLanguage } from '../types';
 
 interface PatientSearchDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelectPatient: (patient: Patient) => void;
+  onSelectPatient: (patient: Patient, language: ConsultationLanguage) => void;
 }
 
 export default function PatientSearchDialog({ open, onClose, onSelectPatient }: PatientSearchDialogProps) {
@@ -39,6 +48,9 @@ export default function PatientSearchDialog({ open, onClose, onSelectPatient }: 
     mrn: '',
   });
   const [creating, setCreating] = useState(false);
+  const [languageMode, setLanguageMode] = useState<'select' | 'auto'>('select');
+  const [selectedLanguage, setSelectedLanguage] = useState<'bn' | 'th' | 'ms'>('bn');
+  const [language, setLanguage] = useState<ConsultationLanguage>('bn');
 
   useEffect(() => {
     if (open && searchQuery.trim().length >= 2) {
@@ -74,7 +86,7 @@ export default function PatientSearchDialog({ open, onClose, onSelectPatient }: 
     setError('');
     try {
       const response = await patientsApi.createPatient(newPatient);
-      onSelectPatient(response.patient);
+      onSelectPatient(response.patient, language);
       handleClose();
     } catch (err: any) {
       setError(err.message || 'Failed to create patient');
@@ -83,14 +95,31 @@ export default function PatientSearchDialog({ open, onClose, onSelectPatient }: 
     }
   };
 
+  const handleSelectExistingPatient = (patient: Patient) => {
+    onSelectPatient(patient, language);
+    handleClose();
+  };
+
   const handleClose = () => {
     setSearchQuery('');
     setPatients([]);
     setError('');
     setShowCreateForm(false);
     setNewPatient({ name: '', dateOfBirth: '', mrn: '' });
+    setLanguageMode('select');
+    setSelectedLanguage('bn');
+    setLanguage('bn');
     onClose();
   };
+
+  // Update language when mode or selected language changes
+  useEffect(() => {
+    if (languageMode === 'auto') {
+      setLanguage('auto');
+    } else {
+      setLanguage(selectedLanguage);
+    }
+  }, [languageMode, selectedLanguage]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -109,6 +138,38 @@ export default function PatientSearchDialog({ open, onClose, onSelectPatient }: 
       <DialogContent>
         {!showCreateForm ? (
           <>
+            <FormControl component="fieldset" sx={{ mb: 2, width: '100%' }}>
+              <FormLabel component="legend">Consultation Language *</FormLabel>
+              <RadioGroup
+                row
+                value={languageMode}
+                onChange={(e) => setLanguageMode(e.target.value as 'select' | 'auto')}
+              >
+                <FormControlLabel value="select" control={<Radio />} label="Select Language" />
+                <FormControlLabel value="auto" control={<Radio />} label="Auto-detect" />
+              </RadioGroup>
+              {languageMode === 'select' && (
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <InputLabel id="language-select-label">Language</InputLabel>
+                  <Select
+                    labelId="language-select-label"
+                    value={selectedLanguage}
+                    label="Language"
+                    onChange={(e) => setSelectedLanguage(e.target.value as 'bn' | 'th' | 'ms')}
+                  >
+                    <MenuItem value="bn">Bangla (বাংলা)</MenuItem>
+                    <MenuItem value="th">Thai (ไทย)</MenuItem>
+                    <MenuItem value="ms">Malay (Bahasa Melayu)</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+              {languageMode === 'auto' && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  The system will automatically detect the language during transcription.
+                </Typography>
+              )}
+            </FormControl>
+
             <TextField
               fullWidth
               label="Search by name, DOB (YYYY-MM-DD), or MRN"
@@ -135,7 +196,7 @@ export default function PatientSearchDialog({ open, onClose, onSelectPatient }: 
               <List>
                 {patients.map((patient) => (
                   <ListItem key={patient.id} disablePadding>
-                    <ListItemButton onClick={() => onSelectPatient(patient)}>
+                    <ListItemButton onClick={() => handleSelectExistingPatient(patient)}>
                       <ListItemText
                         primary={patient.name}
                         secondary={

@@ -1,16 +1,20 @@
 import { Response } from 'express';
+import { Request } from 'express';
 import Consultation from '../models/Consultation';
 import Patient from '../models/Patient';
 import { AuthRequest } from '../middleware/auth';
 import { noteService } from '../services/noteService';
-import { transcriptionService } from '../services/transcriptionService';
 
 export const createConsultation = async (req: AuthRequest, res: Response) => {
   try {
-    const { patientId } = req.body;
+    const { patientId, language } = req.body;
 
     if (!patientId) {
       return res.status(400).json({ error: 'Patient ID is required' });
+    }
+
+    if (!language || !['bn', 'en', 'th', 'ms', 'auto'].includes(language)) {
+      return res.status(400).json({ error: 'Language is required and must be "bn" (Bengali), "en" (English), "th" (Thai), "ms" (Malay), or "auto" (Auto-detect)' });
     }
 
     // Verify patient belongs to the doctor
@@ -31,6 +35,8 @@ export const createConsultation = async (req: AuthRequest, res: Response) => {
       patientNote: null,
       tags: [],
       status: 'in_progress',
+      transcriptionMode: 'cloud',
+      language: language,
     });
 
     await consultation.save();
@@ -45,6 +51,8 @@ export const createConsultation = async (req: AuthRequest, res: Response) => {
         patientNote: consultation.patientNote,
         tags: consultation.tags,
         status: consultation.status,
+        transcriptionMode: consultation.transcriptionMode,
+        language: consultation.language,
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt,
       },
@@ -79,6 +87,8 @@ export const getConsultations = async (req: AuthRequest, res: Response) => {
         patientNote: c.patientNote,
         tags: c.tags,
         status: c.status,
+        transcriptionMode: c.transcriptionMode,
+        language: c.language,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
       })),
@@ -112,6 +122,8 @@ export const getConsultation = async (req: AuthRequest, res: Response) => {
         patientNote: consultation.patientNote,
         tags: consultation.tags,
         status: consultation.status,
+        transcriptionMode: consultation.transcriptionMode,
+        language: consultation.language,
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt,
       },
@@ -138,6 +150,11 @@ export const generateNote = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Consultation is not in progress' });
     }
 
+    // Ensure transcript exists
+    if (!consultation.transcript.trim()) {
+      return res.status(400).json({ error: 'Transcript is empty. Please record audio first.' });
+    }
+
     // Update status to processing
     consultation.status = 'processing';
     await consultation.save();
@@ -162,6 +179,8 @@ export const generateNote = async (req: AuthRequest, res: Response) => {
           patientNote: consultation.patientNote,
           tags: consultation.tags,
           status: consultation.status,
+          transcriptionMode: consultation.transcriptionMode,
+          language: consultation.language,
           createdAt: consultation.createdAt,
           updatedAt: consultation.updatedAt,
         },

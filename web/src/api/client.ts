@@ -22,9 +22,13 @@ async function request<T>(
 ): Promise<T> {
   const token = tokenStorage.get();
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     ...options.headers,
   };
+
+  // Only set Content-Type for JSON, not for FormData
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -50,10 +54,11 @@ async function request<T>(
 
 export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint, { method: 'GET' }),
-  post: <T>(endpoint: string, data?: any) =>
+  post: <T>(endpoint: string, data?: any, options?: RequestInit) =>
     request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: data instanceof FormData ? data : JSON.stringify(data),
+      ...options,
     }),
   put: <T>(endpoint: string, data?: any) =>
     request<T>(endpoint, {

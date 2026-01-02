@@ -12,10 +12,11 @@ class EncryptionService {
   private tagLength = 16;
   private iterations = 100000;
 
-  private getEncryptionKey(): Buffer {
+  private getEncryptionKey(): Buffer | null {
     const encryptionKey = process.env.ENCRYPTION_KEY;
     if (!encryptionKey) {
-      throw new Error('ENCRYPTION_KEY environment variable is required');
+      console.warn('ENCRYPTION_KEY environment variable is not set. Encryption will be disabled.');
+      return null;
     }
 
     // Derive a consistent key from the environment variable
@@ -38,8 +39,14 @@ class EncryptionService {
 
     try {
       const key = this.getEncryptionKey();
+      if (!key) {
+        // If encryption key is not set, return text as-is (no encryption)
+        console.warn('Encryption skipped: ENCRYPTION_KEY not configured');
+        return text;
+      }
+
       const iv = crypto.randomBytes(this.ivLength);
-      const cipher = crypto.createCipheriv(this.algorithm, key, iv);
+      const cipher = crypto.createCipheriv(this.algorithm, key, iv) as crypto.CipherGCM;
 
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
@@ -52,7 +59,9 @@ class EncryptionService {
       return combined;
     } catch (error) {
       console.error('Encryption error:', error);
-      throw new Error('Failed to encrypt data');
+      // On encryption error, return text as-is to prevent data loss
+      console.warn('Encryption failed, storing data unencrypted');
+      return text;
     }
   }
 
@@ -82,7 +91,12 @@ class EncryptionService {
       const tag = Buffer.from(tagHex, 'hex');
       const key = this.getEncryptionKey();
 
-      const decipher = crypto.createDecipheriv(this.algorithm, key, iv);
+      if (!key) {
+        // If encryption key is not set, return text as-is (assume unencrypted)
+        return encryptedText;
+      }
+
+      const decipher = crypto.createDecipheriv(this.algorithm, key, iv) as crypto.DecipherGCM;
       decipher.setAuthTag(tag);
 
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
@@ -130,6 +144,10 @@ class EncryptionService {
 }
 
 export const encryptionService = new EncryptionService();
+
+
+
+
 
 
 

@@ -1,3 +1,5 @@
+export type UserRole = 'user' | 'admin';
+
 export interface User {
   id: string;
   email: string;
@@ -5,6 +7,7 @@ export interface User {
   specialization: string;
   clinicName: string;
   country: string;
+  role: UserRole;
 }
 
 export interface Patient {
@@ -17,6 +20,8 @@ export interface Patient {
 }
 
 export type ConsultationStatus = 'in_progress' | 'processing' | 'completed' | 'failed';
+export type TranscriptionMode = 'cloud';
+export type ConsultationLanguage = 'bn' | 'en' | 'th' | 'ms' | 'auto'; // Bengali, English, Thai, Malay, or Auto-detect
 
 export interface Consultation {
   id: string;
@@ -28,6 +33,8 @@ export interface Consultation {
   patientNote: string | null;
   tags: string[];
   status: ConsultationStatus;
+  transcriptionMode?: TranscriptionMode;
+  language: ConsultationLanguage; // Required language selection
   createdAt: string;
   updatedAt: string;
 }

@@ -43,6 +43,7 @@ export const signup = async (req: Request, res: Response) => {
         specialization: user.specialization,
         clinicName: user.clinicName,
         country: user.country,
+        role: user.role,
       },
     });
   } catch (error: any) {
@@ -79,6 +80,7 @@ export const login = async (req: Request, res: Response) => {
         specialization: user.specialization,
         clinicName: user.clinicName,
         country: user.country,
+        role: user.role,
       },
     });
   } catch (error: any) {
@@ -105,6 +107,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
         specialization: user.specialization,
         clinicName: user.clinicName,
         country: user.country,
+        role: user.role,
       },
     });
   } catch (error: any) {
