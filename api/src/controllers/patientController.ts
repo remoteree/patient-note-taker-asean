@@ -148,3 +148,5 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
 
 
 
+
+
